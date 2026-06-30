@@ -1,9 +1,9 @@
 // --- State Management ---
 let namesArray = [];
-let winnerHistory = []; // Neu: Speichert alle Gewinner chronologisch
+let winnerHistory = []; 
 let selectedWinner = "";
 let isSpinning = false;
-let currentWheelAngle = 0; // Speichert den aktuellen Rotationswinkel des Rades
+let currentWheelAngle = 0; 
 
 // --- DOM Elemente ---
 const sections = {
@@ -44,7 +44,7 @@ document.getElementById('btn-start').addEventListener('click', () => {
     inputField.focus();
 });
 
-// --- Event Listener: Schritt 2 (Namen eingeben) ---
+// --- Event Listener: Schritt 2 (Namen eingeben & Editieren) ---
 document.getElementById('btn-add-name').addEventListener('click', addName);
 inputField.addEventListener('keypress', (e) => { if (e.key === 'Enter') addName(); });
 
@@ -67,15 +67,89 @@ function addName() {
     inputField.focus();
 }
 
+// Erstellt die Liste dynamisch inklusive dem Grauen transparenten Pen-Emoji-Button
 function updateNamesList() {
     namesList.innerHTML = "";
-    namesArray.forEach(name => {
+    namesArray.forEach((name, index) => {
         const li = document.createElement('li');
-        li.textContent = name;
+        
+        // Text-Container für den Namen
+        const textSpan = document.createElement('span');
+        textSpan.textContent = name;
+        textSpan.className = "name-text";
+        
+        // Grauer, transparenter Editier-Button (Stift)
+        const editBtn = document.createElement('button');
+        editBtn.innerHTML = "&#9998;"; // Alternativ: "✎" oder "📝"
+        editBtn.className = "btn-edit";
+        editBtn.title = "Edit Name";
+        
+        // Klick-Event für das Umschalten in den Editiermodus
+        editBtn.addEventListener('click', () => toggleEditName(index, li, textSpan, editBtn));
+
+        li.appendChild(textSpan);
+        li.appendChild(editBtn);
         namesList.appendChild(li);
     });
     
     btnNamesDone.disabled = namesArray.length < 2;
+}
+
+// Steuerung des Inline-Edit-Modus direkt in der Liste
+function toggleEditName(index, li, textSpan, editBtn) {
+    errorMsg.textContent = ""; // Fehler zurücksetzen
+
+    // Prüfen, ob wir uns bereits im Editiermodus befinden
+    const isEditing = li.classList.contains('editing');
+
+    if (!isEditing) {
+        // In den Editiermodus wechseln
+        li.classList.add('editing');
+        
+        const inlineInput = document.createElement('input');
+        inlineInput.type = "text";
+        inlineInput.className = "edit-inline-input";
+        inlineInput.value = namesArray[index];
+        
+        // Ersetze das Text-Span durch das Inputfeld
+        li.replaceChild(inlineInput, textSpan);
+        inlineInput.focus();
+        inlineInput.select();
+        
+        // Ändere den Button temporär in ein Save-Häkchen
+        editBtn.innerHTML = "&#10003;"; // "✓"
+        editBtn.style.opacity = "1";
+        editBtn.style.color = "var(--primary)";
+
+        // Speichern bei Enter im Inline-Feld
+        inlineInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') editBtn.click();
+        });
+    } else {
+        // Editiermodus beenden und speichern
+        const inlineInput = li.querySelector('.edit-inline-input');
+        const updatedName = inlineInput.value.trim();
+
+        if (updatedName === "") {
+            errorMsg.textContent = "Name cannot be empty.";
+            inlineInput.focus();
+            return;
+        }
+
+        // Duplikatsprüfung (außer es ist exakt der eigene, alte Name)
+        if (updatedName !== namesArray[index] && namesArray.includes(updatedName)) {
+            errorMsg.textContent = "This name already exists.";
+            inlineInput.focus();
+            return;
+        }
+
+        // Daten im Array updaten
+        namesArray[index] = updatedName;
+        li.classList.remove('editing');
+        
+        // Liste komplett neu zeichnen, um alles sauber zu synchronisieren
+        updateNamesList();
+    }
 }
 
 btnNamesDone.addEventListener('click', () => {
@@ -98,11 +172,9 @@ function drawWheel(angleOffset) {
     ctx.clearRect(0, 0, size, size);
 
     for (let i = 0; i < numSegments; i++) {
-        // Berechne den Start- und Endwinkel für jedes Segment basierend auf dem Versatz
         const startAngle = angleOffset + (i * arcSize);
         const endAngle = startAngle + arcSize;
         
-        // Segment-Kuchenstück zeichnen
         ctx.fillStyle = colors[i % colors.length];
         ctx.beginPath();
         ctx.moveTo(center, center);
@@ -110,26 +182,20 @@ function drawWheel(angleOffset) {
         ctx.lineTo(center, center);
         ctx.fill();
         
-        // Dezente weiße Trennlinie
         ctx.strokeStyle = "rgba(255,255,255,0.2)";
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // Text-Rendering (Namen von links nach rechts / lesbar ausrichten)
         ctx.save();
         ctx.fillStyle = "#e2e8f0";
         ctx.font = "bold 14px sans-serif";
         
-        // Rotiere den Kontext in die Mitte des aktuellen Segments
         ctx.translate(center, center);
         ctx.rotate(startAngle + arcSize / 2);
         
-        // Bestimme Winkel im vollen Kreis, um Überkopf-Stehen zu verhindern
         let currentStringAngle = (startAngle + arcSize / 2) % (Math.PI * 2);
         if (currentStringAngle < 0) currentStringAngle += Math.PI * 2;
         
-        // Wenn der Text auf dem Kopf stehen würde (rechte Radhälfte vs linke Radhälfte),
-        // drehen wir ihn um 180 Grad um die eigene Achse, damit er immer von links nach rechts lesbar ist.
         if (currentStringAngle > Math.PI / 2 && currentStringAngle < (3 * Math.PI) / 2) {
             ctx.translate(center - 50, 0);
             ctx.rotate(Math.PI);
@@ -144,11 +210,10 @@ function drawWheel(angleOffset) {
     }
 }
 
-// --- Glücksrad Physik & Korrektur des Gewinner-Pfeils ---
+// --- Glücksrad Physik & Pfeil-Berechnung ---
 document.getElementById('btn-spin').addEventListener('click', () => {
     if (isSpinning) return;
 
-    // Automatischer Sofortgewinn, wenn nur noch ein Name existiert
     if (namesArray.length === 1) {
         selectedWinner = namesArray[0];
         showWinnerPage();
@@ -161,7 +226,6 @@ document.getElementById('btn-spin').addEventListener('click', () => {
     let duration = 4000; 
     let startTimestamp = null;
     
-    // Generiere eine zufällige, weite Drehung
     const spinRotation = (Math.PI * 2 * 6) + (Math.random() * Math.PI * 2);
     const startAngle = currentWheelAngle;
 
@@ -170,7 +234,6 @@ document.getElementById('btn-spin').addEventListener('click', () => {
         const elapsed = timestamp - startTimestamp;
         const progress = Math.min(elapsed / duration, 1);
 
-        // Sanftes Ausbremsen (Ease-Out)
         const easeOut = 1 - Math.pow(1 - progress, 4);
         currentWheelAngle = startAngle + (easeOut * spinRotation);
 
@@ -179,21 +242,14 @@ document.getElementById('btn-spin').addEventListener('click', () => {
         if (progress < 1) {
             requestAnimationFrame(animateWheel);
         } else {
-            // --- PRÄZISE PFEIL-BERECHNUNG (Problem 3 behoben) ---
             const numSegments = namesArray.length;
             const arcSize = (2 * Math.PI) / numSegments;
+            const targetPointerAngle = 1.5 * Math.PI; 
             
-            // Der Pfeil befindet sich fix oben bei 12 Uhr (entspricht mathematisch 270° bzw. 1.5 * PI)
-            const targetPointerAngle = 1.5 * Math.PI;
-            
-            // Berechne den relativen Winkel des Rades normiert auf den Bereich [0, 2*PI]
             let absoluteWheelAngle = currentWheelAngle % (Math.PI * 2);
             if (absoluteWheelAngle < 0) absoluteWheelAngle += Math.PI * 2;
             
-            // Berechne, welches Segment unter dem 12-Uhr-Zeiger gelandet ist
             let winningIndex = Math.floor((targetPointerAngle - absoluteWheelAngle + Math.PI * 2) % (Math.PI * 2) / arcSize);
-            
-            // Sicherstellen, dass der Index innerhalb des Arrays liegt
             winningIndex = (winningIndex % numSegments + numSegments) % numSegments;
 
             selectedWinner = namesArray[winningIndex];
@@ -216,14 +272,11 @@ function showWinnerPage() {
     navigateTo(sections.winner);
     startConfetti();
 
-    // Gewinner in die Chronologie eintragen
     winnerHistory.push(selectedWinner);
-
-    // Gewinner für zukünftige Runden aus dem aktiven Pool entfernen
     namesArray = namesArray.filter(name => name !== selectedWinner);
 }
 
-// Reines HTML5 Canvas Konfetti
+// Canvas Konfetti
 const confettiCanvas = document.getElementById('confetti-canvas');
 const confCtx = confettiCanvas.getContext('2d');
 let particles = [];
@@ -270,14 +323,13 @@ function drawConfetti() {
     });
 }
 
-// --- Navigation aus Gewinner-Ansicht & Historie rendern ---
+// --- Navigation aus Gewinner-Ansicht ---
 document.getElementById('btn-spin-again').addEventListener('click', () => {
     clearInterval(confettiInterval);
     if (namesArray.length === 0) {
         showGoodbyePage();
     } else {
         navigateTo(sections.spinner);
-        // Setze das Rad zurück, zeichne es mit verbleibenden Namen neu
         currentWheelAngle = 0;
         drawWheel(currentWheelAngle);
     }
@@ -288,11 +340,8 @@ document.getElementById('btn-winner-done').addEventListener('click', () => {
     showGoodbyePage();
 });
 
-// Funktion zur Anzeige der Abschiedsseite inkl. der Gewinnerliste
 function showGoodbyePage() {
     winnersHistoryList.innerHTML = "";
-    
-    // Befülle die geordnete Liste (ol) mit allen gezogenen Gewinnern
     winnerHistory.forEach(winner => {
         const li = document.createElement('li');
         li.textContent = winner;
