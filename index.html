@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Name Picker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="container">
+        <section id="step-welcome" class="card active">
+            <h1>Welcome!</h1>
+            <p></p>
+            <button id="btn-start" class="btn">Start</button>
+        </section>
+
+        <section id="step-names" class="card">
+            <h2>Enter Names</h2>
+            <div class="input-group">
+                <input type="text" id="name-input" placeholder="Type a name..." autocomplete="off">
+                <button id="btn-add-name" class="btn">Add Person</button>
+            </div>
+            <p id="error-msg" class="error-text"></p>
+
+            <div class="list-container">
+                <h3>Added People:</h3>
+                <ul id="names-list">
+                    </ul>
+            </div>
+
+            <button id="btn-names-done" class="btn btn-secondary" disabled>Done</button>
+        </section>
+
+        <section id="step-spinner" class="card">
+            <h2>Spin the Wheel!</h2>
+            <div class="wheel-container">
+                <div class="wheel-pointer"></div>
+                <canvas id="wheel-canvas" width="400" height="400"></canvas>
+                <button id="btn-spin">SPIN</button>
+            </div>
+        </section>
+
+        <section id="step-winner" class="card">
+            <canvas id="confetti-canvas"></canvas>
+            <div class="winner-content">
+                <span class="emoji-anim">🎉</span>
+                <h1>Congratulations!</h1>
+                <p>The selected person is:</p>
+                <div id="winner-name" class="winner-highlight"></div>
+                
+                <div class="btn-group">
+                    <button id="btn-spin-again" class="btn">Spin Again</button>
+                    <button id="btn-winner-done" class="btn btn-secondary">Done</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="step-goodbye" class="card">
+            <h1>Thank you!</h1>
+            <p class="goodbye-emoji">Goodbye! 👋</p>
+            
+            <div class="history-container">
+                <h3>Selected Winners are:</h3>
+                <ul id="winners-history-list">
+                    </ul>
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
